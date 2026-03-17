@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import Login from './modules/Login';
 import CambiarContraseña from './modules/CambiarContraseña';
+import Register from './modules/Register';
 
 import PresenterView from './modules/PresenterView';
 import PresenterCreateSession from './modules/PresenterCreateSession';
@@ -29,6 +30,9 @@ function App() {
                 
         {/* Login */}
         <Route path="/login" element={<Login />} />
+
+        {/* Register */}
+        <Route path="/register" element={<Register />} />
         
         
         {/*---------------------------------------------------*/}

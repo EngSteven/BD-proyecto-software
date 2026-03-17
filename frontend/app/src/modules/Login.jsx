@@ -1,18 +1,24 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Container, Box, Typography, Button, TextField, Link } from "@mui/material";
+import { 
+  Container, 
+  Box, 
+  Typography, 
+  Button, 
+  TextField, 
+  Link,
+  InputAdornment 
+} from "@mui/material";
 import computer from "../aseets/computer.png";
 import lentes from "../aseets/lentes.png";
 import { supabaseUrl, supabaseApiKey } from "./supabaseConfig";
-// import { useNavigate } from "react-router-dom";
 
 function Login() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
+  const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +35,7 @@ function Login() {
           Accept: "application/json"
         }
       });
-      if (!res.ok) throw new Error("Error de conexión");
+      if (!res.ok) throw new Error("Connection error");
       const users = await res.json();
       if (users.length > 0 && users[0].password === password) {
         // Login correcto
@@ -40,10 +46,10 @@ function Login() {
           navigate("/audienceview");
         }
       } else {
-        setError("Email o contraseña incorrectos");
+        setError("Incorrect email or password");
       }
     } catch (e) {
-      setError("Error al conectar con el servidor");
+      setError("Error connecting to the server");
     }
     setLoading(false);
   };
@@ -164,7 +170,7 @@ function Login() {
         </Typography>
 
         <TextField
-          type="password"
+          type={showPassword ? "text" : "password"}
           fullWidth
           variant="outlined"
           value={password}
@@ -174,8 +180,19 @@ function Login() {
             backgroundColor: "#e0e0e0",
             borderRadius: "6px"
           }}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <Button 
+                  onClick={() => setShowPassword(!showPassword)}
+                  sx={{ textTransform: "none", color: "text.secondary", minWidth: "auto" }}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </Button>
+              </InputAdornment>
+            )
+          }}
         />
-
 
         {/* LOGIN BUTTON */}
         <Button
@@ -195,7 +212,7 @@ function Login() {
             }
           }}
         >
-          {loading ? "Cargando..." : "Login"}
+          {loading ? "Loading..." : "Login"}
         </Button>
 
         {/* ERROR MESSAGE */}
@@ -203,18 +220,33 @@ function Login() {
           <Typography sx={{ color: "#ffbdbd", mb: 2, textAlign: "center" }}>{error}</Typography>
         )}
 
-        {/* FORGOT PASSWORD */}
-        <Link
-          component="button"
-          underline="none"
-          sx={{
-            color: "white",
-            fontSize: "clamp(14px, 1.5vw, 18px)"
-          }}
-          onClick={() => navigate("/cambiarcontraseña")}
-        >
-          Forgot password?
-        </Link>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, mt: 1 }}>
+          {/* FORGOT PASSWORD */}
+          <Link
+            component="button"
+            underline="none"
+            sx={{
+              color: "white",
+              fontSize: "clamp(14px, 1.5vw, 18px)"
+            }}
+            onClick={() => navigate("/cambiarcontraseña")}
+          >
+            Forgot password?
+          </Link>
+
+          {/* REGISTER LINK */}
+          <Link
+            component="button"
+            underline="none"
+            sx={{
+              color: "white",
+              fontSize: "clamp(14px, 1.5vw, 18px)"
+            }}
+            onClick={() => navigate("/register")}
+          >
+            Don't have an account? Register
+          </Link>
+        </Box>
 
         {/* PROJECT TEXT */}
         <Typography
