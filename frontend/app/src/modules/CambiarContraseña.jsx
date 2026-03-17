@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { Container, Box, Typography, Button, TextField } from "@mui/material";
+import { 
+  Container, 
+  Box, 
+  Typography, 
+  Button, 
+  TextField, 
+  InputAdornment 
+} from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import computer from "../aseets/computer.png";
 import lentes from "../aseets/lentes.png";
@@ -9,6 +16,7 @@ function ChangePasswordView() {
 
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -195,7 +203,7 @@ function ChangePasswordView() {
 
         <TextField
           fullWidth
-          type="password"
+          type={showNewPassword ? "text" : "password"}
           variant="outlined"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
@@ -203,6 +211,18 @@ function ChangePasswordView() {
             mb: 4,
             backgroundColor: "#e0e0e0",
             borderRadius: "6px"
+          }}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <Button 
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  sx={{ textTransform: "none", color: "text.secondary", minWidth: "auto" }}
+                >
+                  {showNewPassword ? "Hide" : "Show"}
+                </Button>
+              </InputAdornment>
+            )
           }}
         />
 
