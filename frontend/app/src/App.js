@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import Login from './modules/Login';
 import CambiarContraseña from './modules/CambiarContraseña';
+import UpdatePassword from './modules/UpdatePassword';
 import Register from './modules/Register';
 
 import PresenterView from './modules/PresenterView';
@@ -27,12 +28,16 @@ function App() {
 
         {/* cambiar contraseña */}
         <Route path="/cambiarcontraseña" element={<CambiarContraseña />} />
+        
                 
         {/* Login */}
         <Route path="/login" element={<Login />} />
 
         {/* Register */}
         <Route path="/register" element={<Register />} />
+
+        {/* Update Password */}
+        <Route path="/update-password" element={<UpdatePassword />} />
         
         
         {/*---------------------------------------------------*/}

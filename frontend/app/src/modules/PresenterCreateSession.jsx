@@ -1,10 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Container, Box, Typography, Button, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import computer from "../aseets/computer.png";
 import lentes from "../aseets/lentes.png";
-import { supabaseUrl, supabaseApiKey } from "./supabaseConfig";
-
+import { supabase } from "./supabaseConfig"; // Usamos el cliente oficial
 
 function PresenterCreateSession() {
   const [sessionId, setSessionId] = useState("");
@@ -13,62 +12,75 @@ function PresenterCreateSession() {
   const [presenterId, setPresenterId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+  
   const navigate = useNavigate();
 
-  // Leer presenter_id de localStorage al montar el componente
-  React.useEffect(() => {
+  // Generador de códigos alfanuméricos aleatorios de 6 caracteres
+  const generateSessionId = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  // Leer presenter_id de localStorage y generar el código al montar el componente
+  useEffect(() => {
     const id = localStorage.getItem("presenter_id");
-    if (id) setPresenterId(id);
-  }, []);
+    if (id) {
+      setPresenterId(id);
+    } else {
+      // Si por alguna razón no hay ID, lo mandamos al login por seguridad
+      navigate("/login");
+    }
+    
+    // Asignamos un código autogenerado a la sesión
+    setSessionId(generateSessionId());
+  }, [navigate]);
 
   async function createSession() {
     setError("");
     setSuccess("");
+
     if (!sessionId || !name || !presenterId) {
-      setError("Session ID, name and presenter ID are required");
+      setError("Session name is required");
       return;
     }
+
+    setLoading(true);
     try {
-      // Verificar si el session_id ya existe
-      const checkRes = await fetch(`${supabaseUrl}/rest/v1/sessions?session_id=eq.${sessionId}`, {
-        headers: {
-          apikey: supabaseApiKey,
-          Authorization: `Bearer ${supabaseApiKey}`,
-          Accept: "application/json"
+      // Inserción utilizando el SDK oficial de Supabase
+      const { error: insertError } = await supabase
+        .from('sessions')
+        .insert([
+          {
+            session_id: sessionId,
+            name: name,
+            description: description,
+            presenter_id: presenterId
+          }
+        ]);
+
+      if (insertError) {
+        // Error código 23505 = Conflicto de llave primaria (Primary Key)
+        if (insertError.code === '23505') {
+          // Si por una casualidad extrema el código se repitió, generamos uno nuevo
+          setSessionId(generateSessionId());
+          throw new Error("Collision detected. A new code has been generated, please try clicking Create again.");
         }
-      });
-      if (!checkRes.ok) throw new Error("Error checking session ID");
-      const sessions = await checkRes.json();
-      if (sessions && sessions.length > 0) {
-        setError("Session ID already exists");
-        return;
+        throw insertError;
       }
 
-      // Si no existe, crear la sesión
-      const res = await fetch(`${supabaseUrl}/rest/v1/sessions`, {
-        method: "POST",
-        headers: {
-          apikey: supabaseApiKey,
-          Authorization: `Bearer ${supabaseApiKey}`,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal"
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          name: name,
-          description: description,
-          presenter_id: presenterId
-        })
-      });
-      if (!res.ok) throw new Error("Error creating session");
-      setSuccess("Session created successfully");
+      setSuccess("Session created successfully! Share the Session ID with your audience.");
+      
+      // Opcional: Redirigir a la vista del presentador después de unos segundos
+      // setTimeout(() => navigate("/presenterview"), 2000);
+
     } catch (e) {
-      setError("Error connecting to server");
+      setError(e.message || "Error connecting to server");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-
     <Container
       maxWidth={false}
       disableGutters
@@ -81,7 +93,6 @@ function PresenterCreateSession() {
         padding: 2
       }}
     >
-
       <Box
         sx={{
           width: "85%",
@@ -91,16 +102,17 @@ function PresenterCreateSession() {
           padding: { xs: 4, md: 6 },
           display: "flex",
           flexDirection: "column",
-          alignItems: "center"
+          alignItems: "center",
+          backdropFilter: "blur(5px)"
         }}
       >
-
         <Typography
           sx={{
             color: "white",
             fontWeight: "bold",
             fontSize: "clamp(32px,5vw,56px)",
-            mb: 2
+            mb: 2,
+            textAlign: "center"
           }}
         >
           Create Session
@@ -110,15 +122,14 @@ function PresenterCreateSession() {
           sx={{
             color: "white",
             fontSize: "clamp(18px,2vw,26px)",
-            mb: 5
+            mb: 5,
+            textAlign: "center"
           }}
         >
           Create a new presentation session
         </Typography>
 
-
         {/* IMAGES */}
-
         <Box
           sx={{
             display: "flex",
@@ -127,14 +138,11 @@ function PresenterCreateSession() {
             mb: 6
           }}
         >
-
           <Box
             component="img"
             src={computer}
             alt="computer"
-            sx={{
-              width: { xs: 120, sm: 160, md: 200 }
-            }}
+            sx={{ width: { xs: 120, sm: 160, md: 200 } }}
           />
 
           <Typography sx={{ color: "white", fontSize: "40px" }}>
@@ -145,30 +153,35 @@ function PresenterCreateSession() {
             component="img"
             src={lentes}
             alt="vr headset"
-            sx={{
-              width: { xs: 120, sm: 160, md: 200 }
-            }}
+            sx={{ width: { xs: 120, sm: 160, md: 200 } }}
           />
-
         </Box>
 
-
-        {/* SESSION ID */}
-
+        {/* SESSION ID (Solo lectura) */}
         <Typography sx={{ alignSelf: "flex-start", color: "white", fontSize: "20px", mb: 1 }}>
-          Session ID
+          Session ID (Share this code)
         </Typography>
 
         <TextField
           fullWidth
           value={sessionId}
-          onChange={(e) => setSessionId(e.target.value)}
-          sx={{ mb: 3, backgroundColor: "#e0e0e0", borderRadius: "6px" }}
+          InputProps={{
+            readOnly: true, // Evita que el usuario lo modifique
+          }}
+          sx={{ 
+            mb: 3, 
+            backgroundColor: "#c5d1df", // Un color ligeramente diferente para indicar que es de solo lectura
+            borderRadius: "6px",
+            "& .MuiInputBase-input": {
+              fontWeight: "bold",
+              letterSpacing: "2px",
+              textAlign: "center",
+              fontSize: "22px"
+            }
+          }}
         />
 
-
         {/* NAME */}
-
         <Typography sx={{ alignSelf: "flex-start", color: "white", fontSize: "20px", mb: 1 }}>
           Name
         </Typography>
@@ -177,37 +190,26 @@ function PresenterCreateSession() {
           fullWidth
           value={name}
           onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. My Awesome VR Show"
           sx={{ mb: 3, backgroundColor: "#e0e0e0", borderRadius: "6px" }}
         />
 
-
         {/* DESCRIPTION */}
-
         <Typography sx={{ alignSelf: "flex-start", color: "white", fontSize: "20px", mb: 1 }}>
           Description
         </Typography>
 
         <TextField
           fullWidth
+          multiline
+          rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          sx={{ mb: 3, backgroundColor: "#e0e0e0", borderRadius: "6px" }}
-        />
-
-
-        {/* PRESENTER ID */}
-
-        <Typography sx={{ alignSelf: "flex-start", color: "white", fontSize: "20px", mb: 1 }}>
-          Presenter ID
-        </Typography>
-
-        <TextField
-          fullWidth
-          value={presenterId}
-          onChange={(e) => setPresenterId(e.target.value)}
+          placeholder="What is this session about?"
           sx={{ mb: 4, backgroundColor: "#e0e0e0", borderRadius: "6px" }}
         />
 
+        {/* El PRESENTER ID ya no se dibuja en pantalla por seguridad, pero sigue estando en el state y se envía */}
 
         {error && (
           <Typography sx={{ color: "#ffbaba", mb: 2 }}>
@@ -221,9 +223,7 @@ function PresenterCreateSession() {
           </Typography>
         )}
 
-
         {/* BUTTONS */}
-
         <Box
           sx={{
             display: "flex",
@@ -232,10 +232,10 @@ function PresenterCreateSession() {
             justifyContent: "center"
           }}
         >
-
           <Button
             variant="contained"
             onClick={createSession}
+            disabled={loading}
             sx={{
               backgroundColor: "#5c78a7",
               fontSize: "20px",
@@ -247,12 +247,12 @@ function PresenterCreateSession() {
               }
             }}
           >
-            Create
+            {loading ? "Creating..." : "Create"}
           </Button>
 
           <Button
             variant="contained"
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/presenterview")}
             sx={{
               backgroundColor: "#5c78a7",
               fontSize: "20px",
@@ -266,11 +266,9 @@ function PresenterCreateSession() {
           >
             Back
           </Button>
-
         </Box>
 
       </Box>
-
     </Container>
   );
 }

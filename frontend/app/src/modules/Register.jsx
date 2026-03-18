@@ -12,7 +12,7 @@ import {
   MenuItem,
   InputAdornment
 } from "@mui/material";
-import { supabaseUrl, supabaseApiKey } from "./supabaseConfig";
+import { supabase } from "./supabaseConfig"; 
 
 function Register() {
   const navigate = useNavigate();
@@ -49,42 +49,45 @@ function Register() {
       return;
     }
 
+    // check password strength (at least 6 characters)
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
+
     setLoading(true);
     try {
-      const createdAt = new Date().toISOString();
-
-      const res = await fetch(`${supabaseUrl}/rest/v1/users`, {
-        method: 'POST',
-        headers: {
-          apikey: supabaseApiKey,
-          Authorization: `Bearer ${supabaseApiKey}`,
-          'Content-Type': 'application/json',
-          Prefer: 'return=minimal'
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          role: formData.role,
-          created_at: createdAt
-        })
+      // Registro seguro utilizando Supabase Auth
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            role: formData.role
+            // created_at se genera automáticamente en Supabase Auth
+          }
+        }
       });
 
-      if (!res.ok) {
-        throw new Error("Error registering user. Please check your connection or if the email already exists.");
+      if (signUpError) {
+        throw signUpError;
       }
 
+      // Registro exitoso, redirigimos al login
       navigate("/login");
 
     } catch (err) {
       setError(err.message || "Error connecting to the server.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
