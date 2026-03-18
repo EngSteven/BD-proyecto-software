@@ -12,7 +12,7 @@ dotnet run
 Abre otra terminal nueva y ejecuta:
 
 ```
-cd ../../frontend/app
+cd frontend/app
 npm i
 npm start
 ```
