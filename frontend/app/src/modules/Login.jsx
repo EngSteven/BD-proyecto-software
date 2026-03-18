@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import computer from "../aseets/computer.png";
 import lentes from "../aseets/lentes.png";
-import { supabaseUrl, supabaseApiKey } from "./supabaseConfig";
+import { supabase } from "./supabaseConfig"; // Usamos el cliente configurado
 
 function Login() {
   const navigate = useNavigate();
@@ -27,31 +27,35 @@ function Login() {
     setError("");
     setLoading(true);
     try {
-      // Consulta a Supabase REST API
-      const res = await fetch(`${supabaseUrl}/rest/v1/users?email=eq.${email}`, {
-        headers: {
-          apikey: supabaseApiKey,
-          Authorization: `Bearer ${supabaseApiKey}`,
-          Accept: "application/json"
-        }
+      // Inicio de sesión utilizando Supabase Auth
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
       });
-      if (!res.ok) throw new Error("Connection error");
-      const users = await res.json();
-      if (users.length > 0 && users[0].password === password) {
-        // Login correcto
-        if (users[0].role === "presenter") {
-          localStorage.setItem("presenter_id", users[0].id);
-          navigate("/presenterview");
-        } else {
-          navigate("/audienceview");
-        }
+
+      if (signInError) throw signInError;
+
+      // Supabase guarda el rol y el nombre dentro de user_metadata
+      const userRole = data.user.user_metadata?.role;
+
+      // Validamos el rol para redirigir
+      if (userRole === "presenter") {
+        localStorage.setItem("presenter_id", data.user.id);
+        navigate("/presenterview");
       } else {
-        setError("Incorrect email or password");
+        navigate("/audienceview");
       }
     } catch (e) {
-      setError("Error connecting to the server");
+      // Interceptamos el error específico de correo no confirmado
+      if (e.message && e.message.includes("Email not confirmed")) {
+        setError("Please check your inbox and confirm your email before logging in.");
+      } else {
+        // Mensaje genérico para contraseñas incorrectas u otros errores
+        setError("Incorrect email or password.");
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

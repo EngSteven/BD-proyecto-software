@@ -1,58 +1,69 @@
 ﻿// ------------------------------------------------------------
-// Clase y método para verificar session_id en Supabase
+// Clase y método para verificar session_id en Supabase (Usando SDK Oficial)
 // ------------------------------------------------------------
 using System;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
-using System.Collections.Generic;
+using Supabase.Postgrest.Models;
+using Supabase.Postgrest.Attributes;
 
 namespace API
 {
-	public class Session
-	{
-		[JsonPropertyName("session_id")]
-		public string SessionId { get; set; }
-		[JsonPropertyName("name")]
-		public string Name { get; set; }
-		[JsonPropertyName("description")]
-		public string Description { get; set; }
-		[JsonPropertyName("presenter_id")]
-		public string PresenterId { get; set; }
-		[JsonPropertyName("created_at")]
-		public string CreatedAt { get; set; }
-	}
+    // Mapeo directo a la tabla "sessions"
+    [Table("sessions")]
+    public class Session : BaseModel
+    {
+        [PrimaryKey("session_id", false)]
+        public string SessionId { get; set; }
 
-	public class Program
-	{
-		public static async Task Main(string[] args)
-		{
-			Console.WriteLine("Introduce el session_id a buscar:");
-			string sessionId = Console.ReadLine();
-			bool exists = await CheckSessionExists(sessionId);
-			if (exists)
-				Console.WriteLine($"La sesión {sessionId} SÍ existe en la base de datos.");
-			else
-				Console.WriteLine($"La sesión {sessionId} NO existe en la base de datos.");
-		}
+        [Column("name")]
+        public string Name { get; set; }
 
-		public static async Task<bool> CheckSessionExists(string sessionId)
-		{
-			using var client = new HttpClient();
-			client.BaseAddress = new Uri(Conexion.SupabaseUrl);
-			client.DefaultRequestHeaders.Add("apikey", Conexion.SupabaseApiKey);
-			client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        [Column("description")]
+        public string Description { get; set; }
 
-			var url = $"/rest/v1/sessions?session_id=eq.{sessionId}";
-			var response = await client.GetAsync(url);
-			if (!response.IsSuccessStatusCode)
-				return false;
+        [Column("presenter_id")]
+        public string PresenterId { get; set; }
 
-			var json = await response.Content.ReadAsStringAsync();
-			var sessions = JsonSerializer.Deserialize<List<Session>>(json);
-			return sessions != null && sessions.Count > 0;
-		}
-	}
+        [Column("created_at")]
+        public string CreatedAt { get; set; }
+    }
+
+    public class Program
+    {
+        public static async Task Main(string[] args)
+        {
+            Console.WriteLine("Introduce el session_id a buscar:");
+            string sessionId = Console.ReadLine();
+            
+            bool exists = await CheckSessionExists(sessionId);
+            
+            if (exists)
+                Console.WriteLine($"La sesión {sessionId} SÍ existe en la base de datos.");
+            else
+                Console.WriteLine($"La sesión {sessionId} NO existe en la base de datos.");
+        }
+
+        // Método separado, tal cual lo tenías, devolviendo un booleano
+        public static async Task<bool> CheckSessionExists(string sessionId)
+        {
+            try
+            {
+                // Obtenemos la conexión centralizada
+                var supabase = await Conexion.ObtenerClienteAsync();
+
+                // Hacemos la consulta equivalente a: GET /rest/v1/sessions?session_id=eq.{sessionId}
+                var response = await supabase.From<Session>()
+                                             .Where(x => x.SessionId == sessionId)
+                                             .Get();
+
+                // Si la lista de modelos tiene al menos 1 elemento, retorna true
+                return response.Models.Count > 0;
+            }
+            catch (Exception)
+            {
+                // Si hay algún error de red o de Supabase, retorna false (comportamiento original)
+                return false;
+            }
+        }
+    }
 }

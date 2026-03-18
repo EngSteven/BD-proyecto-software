@@ -4,68 +4,61 @@ import {
   Box, 
   Typography, 
   Button, 
-  TextField, 
-  InputAdornment 
+  TextField 
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import computer from "../aseets/computer.png";
 import lentes from "../aseets/lentes.png";
-import { supabaseUrl, supabaseApiKey } from "./supabaseConfig";
+import { supabase } from "./supabaseConfig"; // Usamos el cliente oficial
 
 function ChangePasswordView() {
 
   const [email, setEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  
+  // Nuevos estados para controlar la interfaz y evitar doble clic (Rate Limit)
+  const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
 
   const navigate = useNavigate();
 
-  async function changePassword() {
+  async function sendResetLink() {
     setError("");
     setSuccess("");
 
-    if (!email || !newPassword) {
-      setError("Email and new password are required");
+    if (!email) {
+      setError("Email is required");
       return;
     }
 
+    setLoading(true);
     try {
-      // Verificar si el email existe primero
-      const checkRes = await fetch(`${supabaseUrl}/rest/v1/users?email=eq.${email}`, {
-        headers: {
-          apikey: supabaseApiKey,
-          Authorization: `Bearer ${supabaseApiKey}`,
-          Accept: "application/json"
-        }
-      });
-      if (!checkRes.ok) throw new Error("Error checking email");
-      const users = await checkRes.json();
-      if (!users || users.length === 0) {
-        setError("Email not found");
-        return;
-      }
-
-      // Si existe, actualizar contraseña
-      const res = await fetch(`${supabaseUrl}/rest/v1/users?email=eq.${email}`, {
-        method: "PATCH",
-        headers: {
-          apikey: supabaseApiKey,
-          Authorization: `Bearer ${supabaseApiKey}`,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal"
-        },
-        body: JSON.stringify({
-          password: newPassword
-        })
+      // Supabase Auth maneja el envío del correo de recuperación de forma segura
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        // Redirigimos al usuario a una página segura para actualizar su contraseña después de validar el token
+        redirectTo: 'http://localhost:3000/update-password', 
       });
 
-      if (!res.ok) throw new Error("Error updating password");
+      if (resetError) throw resetError;
 
-      setSuccess("Password updated successfully");
+      setSuccess("If the email is registered, a secure reset link has been sent.");
+      
+      // Activamos un cooldown de 60 segundos para evitar que gasten su cuota de correos
+      setCooldown(true);
+      setTimeout(() => {
+        setCooldown(false);
+      }, 60000); 
+
     } catch (e) {
-      setError("Error connecting to server");
+      // Capturamos específicamente el error del límite de correos (Too Many Requests)
+      if (e.message && e.message.toLowerCase().includes("rate limit")) {
+        setError("You have requested too many emails. Please wait a while before trying again.");
+      } else {
+        setError(e.message || "Error connecting to server");
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -104,20 +97,22 @@ function ChangePasswordView() {
             color: "white",
             fontWeight: "bold",
             fontSize: "clamp(32px,5vw,56px)",
-            mb: 2
+            mb: 2,
+            textAlign: "center"
           }}
         >
-          Change Password
+          Reset Password
         </Typography>
 
         <Typography
           sx={{
             color: "white",
             fontSize: "clamp(18px,2vw,26px)",
-            mb: 5
+            mb: 5,
+            textAlign: "center"
           }}
         >
-          Update your account password
+          Enter your email to receive a secure recovery link
         </Typography>
 
 
@@ -187,46 +182,6 @@ function ChangePasswordView() {
           }}
         />
 
-
-        {/* NEW PASSWORD */}
-
-        <Typography
-          sx={{
-            alignSelf: "flex-start",
-            color: "white",
-            fontSize: "20px",
-            mb: 1
-          }}
-        >
-          New Password
-        </Typography>
-
-        <TextField
-          fullWidth
-          type={showNewPassword ? "text" : "password"}
-          variant="outlined"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          sx={{
-            mb: 4,
-            backgroundColor: "#e0e0e0",
-            borderRadius: "6px"
-          }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <Button 
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  sx={{ textTransform: "none", color: "text.secondary", minWidth: "auto" }}
-                >
-                  {showNewPassword ? "Hide" : "Show"}
-                </Button>
-              </InputAdornment>
-            )
-          }}
-        />
-
-
         {error && (
           <Typography sx={{ color: "#ffbaba", mb: 2 }}>
             {error}
@@ -247,13 +202,15 @@ function ChangePasswordView() {
             display: "flex",
             gap: "40px",
             flexWrap: "wrap",
-            justifyContent: "center"
+            justifyContent: "center",
+            mt: 2
           }}
         >
 
           <Button
             variant="contained"
-            onClick={changePassword}
+            onClick={sendResetLink}
+            disabled={loading || cooldown} 
             sx={{
               backgroundColor: "#5c78a7",
               fontSize: "20px",
@@ -262,10 +219,15 @@ function ChangePasswordView() {
               textTransform: "none",
               "&:hover": {
                 backgroundColor: "#486592"
+              },
+              // Estilo visual cuando está deshabilitado para que no se pierda en el fondo oscuro
+              "&.Mui-disabled": { 
+                backgroundColor: "rgba(92, 120, 167, 0.5)", 
+                color: "rgba(255,255,255,0.7)" 
               }
             }}
           >
-            Update Password
+            {loading ? "Sending..." : cooldown ? "Wait 60s" : "Send Link"}
           </Button>
 
           <Button
