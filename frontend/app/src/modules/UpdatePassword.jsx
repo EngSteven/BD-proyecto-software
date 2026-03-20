@@ -18,21 +18,29 @@ function UpdatePassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // Nuevo estado para saber si tiene permiso de ver esta pantalla
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   const navigate = useNavigate();
 
-  // Verificamos si el usuario realmente viene del enlace del correo
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        setError("Invalid or expired link. Please request a new password reset.");
-      }
-    });
+    // 1. Buscamos la huella digital ("type=recovery") en la URL
+    const hash = window.location.hash;
+    
+    if (hash && hash.includes("type=recovery")) {
+      // Viene del correo, le damos acceso
+      setIsAuthorized(true);
+    } else {
+      // Entró escribiendo la URL a mano. Bloqueamos el acceso.
+      setError("Access denied. This page can only be accessed via a secure email link.");
+    }
 
-    // Supabase escucha el cambio de estado en la URL (cuando el token se valida)
+    // 2. Mantenemos el listener de Supabase por seguridad extra
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "PASSWORD_RECOVERY") {
-        console.log("Recovery flow started");
+        setIsAuthorized(true);
+        setError(""); 
       }
     });
 
@@ -52,7 +60,6 @@ function UpdatePassword() {
 
     setLoading(true);
     try {
-      // Esta función actualiza la contraseña del usuario actualmente autenticado (el que hizo clic en el link)
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
@@ -61,9 +68,7 @@ function UpdatePassword() {
 
       setSuccess("Password updated successfully! Redirecting to login...");
       
-      // Esperamos 2 segundos y lo mandamos al login para que entre con su nueva clave
       setTimeout(() => {
-        // Cerramos la sesión temporal de recuperación por seguridad
         supabase.auth.signOut(); 
         navigate("/login");
       }, 2000);
@@ -84,7 +89,7 @@ function UpdatePassword() {
         </Typography>
 
         <Typography sx={{ color: "white", fontSize: "clamp(18px,2vw,26px)", mb: 5, textAlign: "center" }}>
-          Enter your new password below
+          {isAuthorized ? "Enter your new password below" : "Security Error"}
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 3, md: 6 }, mb: 6 }}>
@@ -93,39 +98,54 @@ function UpdatePassword() {
           <Box component="img" src={lentes} alt="vr headset" sx={{ width: { xs: 120, sm: 160, md: 200 } }} />
         </Box>
 
-        <Typography sx={{ alignSelf: "flex-start", color: "white", fontSize: "20px", mb: 1 }}>
-          New Password
-        </Typography>
+        {/* Si ocurre un error de permisos o de actualización, lo mostramos aquí */}
+        {error && <Typography sx={{ color: "#ffbaba", mb: 4, textAlign: "center", fontSize: "20px" }}>{error}</Typography>}
+        {success && <Typography sx={{ color: "#b9ffb9", mb: 4, textAlign: "center", fontSize: "20px" }}>{success}</Typography>}
 
-        <TextField
-          fullWidth
-          type={showPassword ? "text" : "password"}
-          variant="outlined"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          sx={{ mb: 4, backgroundColor: "#e0e0e0", borderRadius: "6px" }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <Button onClick={() => setShowPassword(!showPassword)} sx={{ textTransform: "none", color: "text.secondary", minWidth: "auto" }}>
-                  {showPassword ? "Hide" : "Show"}
-                </Button>
-              </InputAdornment>
-            )
-          }}
-        />
+        {/* RENDEREIZADO CONDICIONAL: Solo mostramos el formulario si está autorizado */}
+        {isAuthorized ? (
+          <>
+            <Typography sx={{ alignSelf: "flex-start", color: "white", fontSize: "20px", mb: 1 }}>
+              New Password
+            </Typography>
 
-        {error && <Typography sx={{ color: "#ffbaba", mb: 2 }}>{error}</Typography>}
-        {success && <Typography sx={{ color: "#b9ffb9", mb: 2 }}>{success}</Typography>}
+            <TextField
+              fullWidth
+              type={showPassword ? "text" : "password"}
+              variant="outlined"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              sx={{ mb: 4, backgroundColor: "#e0e0e0", borderRadius: "6px" }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button onClick={() => setShowPassword(!showPassword)} sx={{ textTransform: "none", color: "text.secondary", minWidth: "auto" }}>
+                      {showPassword ? "Hide" : "Show"}
+                    </Button>
+                  </InputAdornment>
+                )
+              }}
+            />
 
-        <Button
-          variant="contained"
-          onClick={handleUpdatePassword}
-          disabled={loading}
-          sx={{ backgroundColor: "#5c78a7", fontSize: "20px", padding: "14px 50px", borderRadius: "14px", textTransform: "none", "&:hover": { backgroundColor: "#486592" } }}
-        >
-          {loading ? "Updating..." : "Save New Password"}
-        </Button>
+            <Button
+              variant="contained"
+              onClick={handleUpdatePassword}
+              disabled={loading}
+              sx={{ backgroundColor: "#5c78a7", fontSize: "20px", padding: "14px 50px", borderRadius: "14px", textTransform: "none", "&:hover": { backgroundColor: "#486592" } }}
+            >
+              {loading ? "Updating..." : "Save New Password"}
+            </Button>
+          </>
+        ) : (
+          /* Si no está autorizado, le damos un botón para volver al login de forma segura */
+          <Button
+            variant="contained"
+            onClick={() => navigate("/login")}
+            sx={{ backgroundColor: "#5c78a7", fontSize: "20px", padding: "14px 50px", borderRadius: "14px", textTransform: "none", "&:hover": { backgroundColor: "#486592" } }}
+          >
+            Back to Login
+          </Button>
+        )}
 
       </Box>
     </Container>
